@@ -27,44 +27,37 @@ from pyspark.sql import functions as F
 
 # COMMAND ----------
 
-df = pd.read_csv('../../dbfs/FileStore/tables/10_PLSA/DATA/ANALYSIS/category_beta.csv', skiprows=2)
-df = spark.createDataFrame(df)
+df = spark.read.csv('/FileStore/tables/10_PLSA/DATA/ANALYSIS/category_final.csv', header=True)
 
 # COMMAND ----------
 
-df_clean = (df
-        .drop('No', '大分類ｺｰﾄﾞ', '大分類名称', '中分類ｺｰﾄﾞ', '中分類名称', '商品ｺｰﾄﾞ','商品名','会員買上金額', '小分類名称')
-        .withColumnRenamed('小分類ｺｰﾄﾞ', 'cat_code')
-        .withColumnRenamed('CATAEGORY　CODE', 'word_code')
-        .withColumnRenamed('CATEGORY　NAME', 'word_name')
-        .dropna()
-     )
-
-df_clean.count()
+display(df)
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC 
-# MAGIC ## ELIMINATE DUPLIATES
+# check if there is any null values
+
+print(f'Rows: {df.count()} | Cols: {len(df.columns)}')
+
+df = df.dropna()
+
+print(f'Rows: {df.count()} | Cols: {len(df.columns)}')
 
 # COMMAND ----------
 
-df_final = (df_clean
-        .groupBy('cat_code', 'word_code') 
-        .agg(F.first('word_name').alias('word_name'), 
-             F.count('word_name').alias('n_items')) # get the number of items per cat-word
-        .orderBy('cat_code','n_items', ascending=False) # get the cat with most items first
-        .groupBy('cat_code') # group by cat
-        .agg(F.first('word_code').alias('word_code'), 
-             F.first('word_name').alias('word_name')) # keep the word with most items per category
-       )
+# check for duplicates
+
+display(df.groupBy('cat_code').agg(F.count('word_code').alias('word_code')).filter('word_code > 1'))
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC 
 # MAGIC ## RESULTS OVERVIEW
+
+# COMMAND ----------
+
+df_final = df
 
 # COMMAND ----------
 
@@ -81,21 +74,4 @@ display(df_final.head(3))
 
 # spark.sql('USE 10_plsa')
 # spark.sql('DROP TABLE IF EXISTS category_master')
-# df_clean.write.saveAsTable('category_master')
-
-# COMMAND ----------
-
-spark.sql('USE 10_plsa')
-cat_master = spark.sql('SELECT * FROM category_master')
-
-# COMMAND ----------
-
-cat_master.write.csv('/FileStore/files/10_PLSA/DATA/ANALYSIS/z', )
-
-# COMMAND ----------
-
-ls ../../dbfs/FileStore/files/10_PLSA/DATA/ANALYSIS/z
-
-# COMMAND ----------
-
-
+# df_final.write.saveAsTable('category_master')
