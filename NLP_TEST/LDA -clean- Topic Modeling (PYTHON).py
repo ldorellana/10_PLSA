@@ -145,8 +145,8 @@ fil_df = remover.transform(tokenized_df)
 
 from pyspark.ml.feature import CountVectorizer, IDF
 
-#DF = number or fraction of documents the word appreas
-#TF = number or fraction of times the word appears
+#DF = (max/min) number or fraction of documents the word appreas
+#TF = (min) number or fraction of times the word appears in a document
 
 countvectorizer = (CountVectorizer(inputCol='fil_tokens', 
                                   outputCol='features', 
