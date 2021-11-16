@@ -22,11 +22,19 @@
 # MAGIC 3. Delete card_id == 0
 # MAGIC 4. Check for duplicates
 # MAGIC 5. Check for negatives and null
-# MAGIC 6. Save the data
+# MAGIC 6. Group by card_id.cat_code sum the values
+# MAGIC 7. Save the data
 
 # COMMAND ----------
 
 from pyspark.sql import functions as F
+from pyspark.sql.types import StructField, StructType, StringType, IntegerType
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## READ DATA
 
 # COMMAND ----------
 
@@ -40,11 +48,10 @@ files = ['FRESTA 20 NOV.csv',
 'FRESTA 21 JUN.csv',
 'FRESTA 21 MAR.csv',
 'FRESTA 21 MAY.csv',
-'FRESTA 21 SEP.csv']
+'FRESTA 21 SEP.csv',
+'FRESTA 20 DEC.csv']
 
 # COMMAND ----------
-
-from pyspark.sql.types import StructField, StructType, StringType, IntegerType
 
 schema = StructType([StructField('No',StringType(),True),
                          StructField('card_id',StringType(),True),
@@ -68,30 +75,11 @@ display(main_df)
 
 # MAGIC %md
 # MAGIC 
-# MAGIC ## READ DATA
-
-# COMMAND ----------
-
-file = '/FileStore/tables/10_PLSA/DATA/ANALYSIS/CJ/September_Data.csv'
-df = spark.read.csv(path=file, header=True, encoding='shift_jis')
-
-print(df.count(), len(df.columns))
-
-display(df)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
 # MAGIC ## CLEAN DATA
 
 # COMMAND ----------
 
-df_clean = (df.drop('No') # drop unneeded column
- .withColumnRenamed('ｶｰﾄﾞID', 'card_id') # change names
- .withColumnRenamed('小分類ｺｰﾄﾞ', 'cat_code')
- .withColumnRenamed('会員買上点数', 'qty') # change names
- .withColumn('qty', F.col('qty').astype('int').alias('qty'))
+df_clean = (main_df.drop('No') # drop unneeded column
  .filter(('card_id != "0"') or ('qty > 0')) # filter unwanted values
  .dropna() # drop null values
  .withColumn('cat_code', F.regexp_replace('cat_code', '\|', '_')) # change the word_code pattern
@@ -105,6 +93,27 @@ display(df_clean.head(2))
 
 # MAGIC %md
 # MAGIC 
+# MAGIC ## GROUP CUSTOMERS
+
+# COMMAND ----------
+
+df_grouped =(df_clean
+             .groupBy('card_id', 'cat_code')
+             .agg(F.sum('qty').alias('qty'))
+             )
+
+# COMMAND ----------
+
+display(df_grouped)
+
+# COMMAND ----------
+
+(df_grouped.count())
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
 # MAGIC ## SAVE TABLE
 
 # COMMAND ----------
@@ -112,4 +121,8 @@ display(df_clean.head(2))
 spark.sql('USE 10_plsa')
 spark.sql('DROP TABLE IF EXISTS transactions_master')
 
-df_clean.write.saveAsTable('transactions_master', partitionBy='cat_code')
+df_grouped.write.saveAsTable('transactions_master', partitionBy='cat_code')
+
+# COMMAND ----------
+
+
