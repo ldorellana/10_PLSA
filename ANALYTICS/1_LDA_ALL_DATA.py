@@ -72,14 +72,9 @@ count_filt = count_df.join(filtered_cust.select('card_id'), how='inner', on='car
 
 # COMMAND ----------
 
-# MAGIC %md 
-# MAGIC # TRAINING DATA 
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC 
-# MAGIC ## CONVERTO TO VECTOR
+# MAGIC ## PREPARE DF
 
 # COMMAND ----------
 
@@ -95,6 +90,12 @@ df_pivoted = (count_filt
               .agg(F.sum('qty'))
               .fillna(0)
              )
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## LDA PIPELINE
 
 # COMMAND ----------
 
@@ -135,6 +136,12 @@ topics = lda_model.describeTopics(maxTermsPerTopic=35)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC 
+# MAGIC ## ANALIZE RESULTS
+
+# COMMAND ----------
+
 from pyspark.sql.types import ArrayType, StringType
 
 def term_word(termIndices):
@@ -159,37 +166,6 @@ df_topics = (topics
         .join(df_lang, on='word_code')
         .toPandas()
        )
-
-# COMMAND ----------
-
-import plotly.express as px
-
-fig = px.treemap(df_topics, path=[px.Constant("TOPICS"), 'topic', 'word_en'], values='termWeights', )
-fig.update_traces(root_color="lightgrey")
-fig.update_layout(margin = dict(t=50, l=25, r=25, b=25))
-fig.show()
-
-# COMMAND ----------
-
-import plotly.express as px
-
-fig = px.treemap(df_topics, path=[px.Constant("TOPICS"), 'topic', 'word_jp'], values='termWeights', )
-fig.update_traces(root_color="lightgrey")
-fig.update_layout(margin = dict(t=50, l=25, r=25, b=25))
-fig.show()
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
-import plotly.express as px
-
-fig = px.treemap(df_topics, path=[px.Constant("TOPICS"), 'topic', 'word_en'], values='termWeights', )
-fig.update_traces(root_color="lightgrey")
-fig.update_layout(margin = dict(t=50, l=25, r=25, b=25))
-fig.show()
 
 # COMMAND ----------
 
