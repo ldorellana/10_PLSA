@@ -57,7 +57,32 @@ display(df.groupBy('cat_code').agg(F.count('word_code').alias('word_code')).filt
 
 # COMMAND ----------
 
-df_final = df
+display(df)
+
+# COMMAND ----------
+
+stop_words = ['(空白)','収納代行', 'テナント店', '特販品']
+
+# COMMAND ----------
+
+df_words = (df
+            .groupBy('word_code')
+            .agg(F.first('word_name').alias('word_name'))
+            .filter(~F.col('word_name').isin(stop_words))
+            .orderBy('word_code')
+            .withColumn('index', F.monotonically_increasing_id())
+           )
+
+# COMMAND ----------
+
+display(df_words)
+
+# COMMAND ----------
+
+df_final = (df
+            .select('cat_code', 'cat_name', 'word_code')
+            .join(df_words, on='word_code', how='inner')
+           )
 
 # COMMAND ----------
 
@@ -75,3 +100,7 @@ display(df_final.head(3))
 # spark.sql('USE 10_plsa')
 # spark.sql('DROP TABLE IF EXISTS category_master')
 # df_final.write.saveAsTable('category_master')
+
+# COMMAND ----------
+
+
