@@ -231,7 +231,7 @@ filtered_df = remover.transform(tokenized_df)
 
 # COMMAND ----------
 
-from pyspark.ml.feature import CountVectorizer, IDF
+from pyspark.ml.feature import CountVectorizer
 
 # Set params for CountVectorizer
 vectorizer = (CountVectorizer()
@@ -244,17 +244,6 @@ vectorizer = (CountVectorizer()
 # COMMAND ----------
 
 count_df = vectorizer.transform(filtered_df)
-
-weigthed_df = (IDF()
-            .setInputCol("features")
-            .setOutputCol("features_w")
-            .fit(count_df)
-            .transform(count_df)
-           )
-
-# COMMAND ----------
-
-display(weigthed_df)
 
 # COMMAND ----------
 
@@ -289,7 +278,7 @@ from  pyspark.ml.clustering import LDA
 
 # Set LDA params
 
-lda_model = LDA(featuresCol='features_w', maxIter=10, seed=32, k=10, optimizer='em').fit(weigthed_df)
+lda_model = LDA(featuresCol='features', maxIter=10, seed=32, k=10, optimizer='em').fit(count_df)
 
 # COMMAND ----------
 
