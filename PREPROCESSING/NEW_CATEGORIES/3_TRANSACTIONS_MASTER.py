@@ -109,7 +109,7 @@ df_grouped =(df_clean
 # COMMAND ----------
 
 spark.sql('USE 10_plsa')
-df_categories = spark.sql('SELECT * FROM category_master')
+df_categories = spark.sql('SELECT * FROM category_master_v2')
 
 # COMMAND ----------
 
@@ -125,10 +125,8 @@ df_final = (df_grouped
             .join(df_categories, on='cat_code')
             .groupBy('card_id','word_code')
             .agg(F.first('word_name').alias('word_name'), 
-                 F.first('index').alias('index'), 
                  F.sum('qty').alias('qty'))
             .withColumn('qty', F.col('qty').astype('int'))
-            .withColumn('index', F.col('index').astype('int'))
            )
 
 # COMMAND ----------
@@ -139,11 +137,7 @@ df_final = (df_grouped
 
 # COMMAND ----------
 
-spark.sql('USE 10_plsa')
-spark.sql('DROP TABLE IF EXISTS tran_word_master')
+# spark.sql('USE 10_plsa')
+# spark.sql('DROP TABLE IF EXISTS tran_word_master_v2')
 
-df_final.write.saveAsTable('tran_word_master', partitionBy='word_code')
-
-# COMMAND ----------
-
-
+# df_final.write.saveAsTable('tran_word_master_v2', partitionBy='word_code')
