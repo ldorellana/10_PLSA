@@ -17,11 +17,17 @@
 
 # COMMAND ----------
 
-date = '11_24'
+import os
 
 # COMMAND ----------
 
-# MAGIC %sh ls ../../dbfs/FileStore/files/LDA_MODELS/11_24_AlphaBeta/
+date = '11_29'
+new_dir = f'../../dbfs/FileStore/files/LDA_MODELS/{date}v1/'
+os.mkdir(new_dir)
+
+# COMMAND ----------
+
+os.listdir('../../dbfs/FileStore/files/LDA_MODELS/11_29v1')
 
 # COMMAND ----------
 
@@ -82,7 +88,7 @@ count_vectorizer = CountVectorizer(inputCol='clean_doc',
 alpha = [1.1]
 beta = 10 
 no_clusters = 15
-maxIter = 20
+maxIter = 50
 optimizer = 'online'
 
 # starting model
@@ -98,10 +104,9 @@ pipeline = Pipeline(stages=[stop_words_remover, count_vectorizer, lda])
 
 # COMMAND ----------
 
-pipeline_path = f'FileStore/files/LDA_MODELS/{date}_AlphaBeta/'
+pipeline_path = f'FileStore/files/LDA_MODELS/{date}v1/'
 
-
-no_clusters = list(range(4,10))
+no_clusters = [16]
 
 for no_cluster in no_clusters:
   
@@ -113,6 +118,10 @@ for no_cluster in no_clusters:
   pipepline_model = pipeline.fit(df_docs)
   
   pipepline_model.write().overwrite().save(pipeline_path+pipeline_name)
+
+# COMMAND ----------
+
+ls ../../dbfs/FileStore/files/LDA_MODELS/11_29v1/
 
 # COMMAND ----------
 

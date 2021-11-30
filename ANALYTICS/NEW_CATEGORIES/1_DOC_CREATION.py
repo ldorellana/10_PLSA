@@ -9,7 +9,7 @@ from pyspark.sql import functions as F
 
 # COMMAND ----------
 
-date = '11_25'
+date = '11_29'
 
 # COMMAND ----------
 
@@ -31,8 +31,8 @@ docs = (count_df
 
 # COMMAND ----------
 
-# spark.sql('DROP TABLE IF EXISTS card_id_docs_v2')
-# docs.write.saveAsTable('card_id_docs_v2')
+spark.sql('DROP TABLE IF EXISTS card_id_docs_v2')
+docs.write.saveAsTable('card_id_docs_v2')
 
 # COMMAND ----------
 

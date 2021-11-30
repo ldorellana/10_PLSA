@@ -17,11 +17,14 @@
 
 # COMMAND ----------
 
-date = '11_25'
+import os
+date = '11_29'
+new_dir = f'../../dbfs/FileStore/files/LDA_MODELS/{date}v2/'
+os.mkdir(new_dir)
 
 # COMMAND ----------
 
-# MAGIC %sh ls ../../dbfs/FileStore/files/LDA_MODELS/NEW_CATS/11_25
+os.listdir('../../dbfs/FileStore/files/LDA_MODELS/11_29v2')
 
 # COMMAND ----------
 
@@ -99,10 +102,10 @@ pipeline = Pipeline(stages=[stop_words_remover, count_vectorizer, lda])
 
 # COMMAND ----------
 
-pipeline_path = f'FileStore/files/LDA_MODELS/NEW_CATS/{date}/'
+pipeline_path = f'FileStore/files/LDA_MODELS/11_29v2/'
 
 
-no_clusters = list(range(4,10))
+no_clusters = [8, 12, 16]
 
 for no_cluster in no_clusters:
   

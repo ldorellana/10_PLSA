@@ -5,7 +5,8 @@
 
 # COMMAND ----------
 
-date = '11_25'
+date = '11_30'
+model_date = '11_29'
 
 # COMMAND ----------
 
@@ -43,6 +44,17 @@ df_lang = spark.sql('SELECT * FROM words_jpen_v2')
 df_docs = spark.sql('SELECT * FROM card_id_docs_v2')
 df_cust = spark.sql('SELECT * FROM customer_master')
 
+df_transactions = spark.sql('SELECT * FROM transactions_master')
+df_old_cat = spark.sql('SELECT * FROM old_categories')
+
+# COMMAND ----------
+
+df_cat_master = (df_old_cat
+                 .join(df_words['word_code', 'cat_code', 'word_name'], on='cat_code')
+                 .withColumnRenamed('word_code','clust_category')
+                 .withColumnRenamed('word_name','clust_category_name')
+                )
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -62,7 +74,7 @@ def run_pipeline(pipeline_name, pipeline_folder, df_vectorized):
   
   # Topics
   vocabulary = pipeline_model.stages[1].vocabulary
-  topics = pipeline_model.stages[2].describeTopics(maxTermsPerTopic=30)
+  topics = pipeline_model.stages[2].describeTopics(maxTermsPerTopic=50)
   
   return df_transformed, topics, vocabulary
 
@@ -79,14 +91,41 @@ def clust_info(df_transformed):
                     .withColumn('cluster', clusterUDF(F.col('topicDistribution'))))
   
   # calculate the size of the cluster
-  cluster_size = (df_transformed.groupBy('cluster')
+
+  total_cust = df_transformed.count()
+
+  cluster_size = (df_transformed
+                  .groupBy('cluster')
                   .agg(F.count('card_id').alias('size'),
-                       F.round(100*(F.count('card_id')/df_transformed.count()), 2).alias('percent')
+                       F.round(100*(F.count('card_id')/total_cust), 2).alias('percent'),
                       )
                   .orderBy('size', ascending=False)
                  )
+
+  df_trans_cust = df_transformed.join(df_cust, on='card_id')
+
+  # get gender rate
+  gender_rate = (df_trans_cust
+                 .groupby('cluster')
+                 .pivot('gender')
+                 .agg(F.count('card_id')).alias('gender')
+                 .fillna(0)
+                )
+
+  # get age rate
+  age_rate = (df_trans_cust
+                 .groupby('cluster')
+                 .pivot('age')
+                 .agg(F.count('card_id')).alias('age')
+                 .fillna(0)
+                )
+
+  cluster_summary = (cluster_size
+                     .join(gender_rate, on='cluster', how='inner')
+                     .join(age_rate, on='cluster', how='inner')
+                    )
   
-  return df_transformed, cluster_size
+  return df_transformed, cluster_summary
 
 # COMMAND ----------
 
@@ -114,7 +153,7 @@ def transform_clus_data(clusters_data, df_lang, cluster_size):
           .select('cluster','exp.terms', 'exp.termWeights') #select columns
           .withColumnRenamed('terms', 'word_code') # rename
           .join(df_lang, on='word_code') # get the words in jp and eng
-          .join(cluster_size, on='cluster') # get size of cluster
+          .join(cluster_size.select('cluster','size', 'percent'), on='cluster') # get size of cluster
           .withColumn('cluster_info', F.concat_ws('- ', 'cluster', 'percent'))
           .withColumn('cluster_info', F.concat_ws('%, 人数', 'cluster_info', 'size'))
          )
@@ -123,28 +162,59 @@ def transform_clus_data(clusters_data, df_lang, cluster_size):
 
 # COMMAND ----------
 
-pipeline_folder = f'/FileStore/files/LDA_MODELS/NEW_CATS/11_25/'
+def items_clust(cust_clust, df_transactions, df_old_cat, df_words): 
+  
+  clust_tran = (cust_clust.select('card_id','cluster')
+                .join(df_transactions['card_id','cat_code','qty'], on='card_id', how='inner')
+                .groupBy('cat_code')
+                .pivot('cluster')
+                .agg(F.sum('qty').alias('qty'))
+                .fillna(0)
+                .join(df_cat_master, on='cat_code', how='inner')
+               )
+
+  category_columns = ['cat_code', '部門名称', '中分類名称', '小分類名称', 'clust_category', 'clust_category_name']
+  cluster_columns = set(clust_tran.columns).difference(set(category_columns))
+  columns = category_columns + sorted([int(col) for col in cluster_columns])
+  columns = [str(col) for col in columns]
+
+  clust_tran = clust_tran.select(*columns).orderBy('cat_code')
+  
+  return clust_tran
+
+# COMMAND ----------
+
+#mkdir ../../dbfs/FileStore/files/LDA_MODELS/11_30v2/
+
+# COMMAND ----------
+
+ls ../../dbfs/FileStore/files/LDA_MODELS/11_29v2/
+
+# COMMAND ----------
+
+import os
+pipeline_folder = f'/FileStore/files/LDA_MODELS/{model_date}v2/'
 os.listdir('../../dbfs/'+pipeline_folder)
 
 # COMMAND ----------
 
-pipeline_list = ['NO_CLUST8']
-
+pipeline_list = os.listdir('../../dbfs/'+pipeline_folder)
 pipeline_results = dict()
+pipeline_list = ['NO_CLUST16']
 
 for pipeline_name in pipeline_list:
-  
+
   # load the model
   df_transformed, topics, vocabulary = run_pipeline(pipeline_name, pipeline_folder, df_docs)
   
   # get the cluster for each customer and clusters size
-  df_transformed, cluster_size = clust_info(df_transformed)
+  df_transformed, cluster_sumary = clust_info(df_transformed)
   
   # index the words for undestanding
   topics = word_indexer(topics, vocabulary)
   
   # convert arrays to zip term/term_weight, explode to rows, cols
-  df_clusters = transform_clus_data(topics, df_lang, cluster_size)
+  df_clusters = transform_clus_data(topics, df_lang, cluster_sumary)
   
   # cluster by customer
   cust_clust = (df_transformed
@@ -152,7 +222,12 @@ for pipeline_name in pipeline_list:
                 .join(df_cust, on='card_id', how='inner')
                )
   
-  pipeline_results[pipeline_name] = [df_clusters.toPandas(), cluster_size.toPandas(), cust_clust.toPandas()]
+  # get the cluster items per category
+  clust_cat = items_clust(cust_clust, df_transactions, df_old_cat, df_words)
+
+  
+  pipeline_results[pipeline_name] = [df_clusters.toPandas(), cluster_sumary.toPandas(), 
+                                     cust_clust.toPandas(), clust_cat.toPandas()]
 
 # COMMAND ----------
 
@@ -394,29 +469,39 @@ def html_head(html_file, title):
 
 # COMMAND ----------
 
-mkdir ../../dbfs/FileStore/files/LDA_MODELS/reports/cluster12_16/
+ls ../../dbfs/FileStore/files/LDA_MODELS/reports/11_30v2
 
 # COMMAND ----------
 
 # to export the cluster of each customer
-#df_excel = df_cust.select('card_id')
+df_excel = df_cust.select('card_id')
 language = 'both'
 
 for pipeline_no, (pipeline_name, results)  in enumerate(pipeline_results.items()):
   pipeline_name = pipeline_name.replace(' ', '-')
-  file_name = f'Pipeline_{pipeline_name}_{date}'
-  loc = '../../dbfs/FileStore/files/LDA_MODELS/reports/categories_v2/'
+  
+  file_name = f'V2{pipeline_name}_{date}'
+  loc = f'../../dbfs/FileStore/files/LDA_MODELS/reports/{date}v2/'
   title = 'フレスコークラスタリング'
   
-  html_file = open(f"{loc}{file_name}.html",'w')
+  ### EXTRACT DATA ##################################################
+  df_topics = results[0]
+  df_clust_summary = results[1]
+  df_customers = results[2]
+  df_cat_clust = results[3]
+  
+  ### EXCEL FOR CATEGORIES ##########################################
+  df_cat_clust.to_csv(f"{loc}{file_name}_purchase_data.csv")
+  
+  ### CLUSTER SUMMARY ###############################################
+  df_clust_summary.to_csv(f"{loc}{file_name}_clust_summary.csv")
+ 
+  #### HTML #########################################################
+  html_file = open(f"{loc}{file_name}_overview.html",'w')
   html_file = html_head(html_file, title)
   
-  df_topics = results[0]
-  df_tsize = results[1]
-  df_customers = results[2]
-  
   # piechart
-  html_pie = graph_pie(df_tsize)
+  html_pie = graph_pie(df_clust_summary)
   # main treemap
   html_treemap = graph_treemap(' ', df_topics, language)
   # gender chart
@@ -428,7 +513,7 @@ for pipeline_no, (pipeline_name, results)  in enumerate(pipeline_results.items()
   html_file.write(html_gender+'\n')
   
   # cluster specific overview 
-  nclusters = df_tsize['cluster'].unique()
+  nclusters = df_clust_summary['cluster'].unique()
   nclusters.sort()
   
   for cluster in nclusters:
@@ -448,20 +533,28 @@ for pipeline_no, (pipeline_name, results)  in enumerate(pipeline_results.items()
     html_file.write(html_clusgender_ratio+'\n')
     html_file.write('<div class="space"></div>''\n')
 
-  # for excel
+  #### CUSTOMERS CLUSTER #####################################################
   df_customers = (spark
                   .createDataFrame(df_customers)
                   .select('card_id','cluster')
                   .withColumnRenamed('cluster', pipeline_name))
   
   df_excel = df_excel.join(df_customers, on='card_id', how='inner')
-  
+
   html_file.write("\n</div></body></html>")
   html_file.close()
 
 # COMMAND ----------
 
-df_excel.coalesce(1).write.csv('/FileStore/files/LDA_MODELS/11_25/v2_clust_8_12_16.csv', header=True)
+df_excel.coalesce(1).write.csv(f'/FileStore/files/LDA_MODELS/reports/11_30v2/V2_CLUST_CUST_{pipeline_list[0]}.csv', header=True)
+
+# COMMAND ----------
+
+ls ../../dbfs/FileStore/files/LDA_MODELS/reports/11_30v2/V2_CLUST_CUST_NO_CLUST16.csv/
+
+# COMMAND ----------
+
+ls ../../dbfs/FileStore/files/LDA_MODELS/reports/11_30v2/
 
 # COMMAND ----------
 

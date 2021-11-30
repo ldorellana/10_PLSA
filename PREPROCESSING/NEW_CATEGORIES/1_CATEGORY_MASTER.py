@@ -33,12 +33,21 @@ from pyspark.sql import functions as F
 
 # COMMAND ----------
 
-df = spark.read.csv('/FileStore/tables/10_PLSA/DATA/ANALYSIS/CAT_V2/categories_v2.csv', header=True)
+# MAGIC %sh ls ../../dbfs/FileStore/tables/10_PLSA/DATA/ANALYSIS/CAT_V2/
+
+# COMMAND ----------
+
+# df = spark.read.csv('/FileStore/tables/10_PLSA/DATA/ANALYSIS/CAT_V2/categories_v21.csv', header=True)
+# display(df.groupby('word_code').count())
+
+# COMMAND ----------
+
+df = spark.read.csv('/FileStore/tables/10_PLSA/DATA/ANALYSIS/CAT_V2/categories_v21.csv', header=True)
 
 
 # File location and type
 file_location = '/FileStore/tables/10_PLSA/DATA/ANALYSIS/CAT_V2/'
-file_name = 'en_jp_categories_v2.csv'
+file_name = 'en_jp_categories_v21.csv'
 
 df_codes = spark.read.csv(file_location+file_name, header=True)
 
@@ -84,11 +93,24 @@ display(df.groupBy('cat_code').agg(F.count('word_code').alias('word_code')).filt
 
 # COMMAND ----------
 
-df.filter(F.col('word_code') == 'N/A').count()
+df.filter(F.col('word_name') == 'N/A').count()
 
 # COMMAND ----------
 
-df_clean = df.filter(F.col('word_code') != 'N/A')
+display(df.head(5))
+
+# COMMAND ----------
+
+droped_words = ['T-shirt Bag', 'Bin Bag', 'N/A']
+display(df.filter(F.col('word_name').isin(droped_words)))
+
+# COMMAND ----------
+
+df_clean = df.filter(F.col('word_name').isin(droped_words) == False)
+
+# COMMAND ----------
+
+df.count() - df_clean.count()
 
 # COMMAND ----------
 
@@ -99,6 +121,10 @@ df_clean = df.filter(F.col('word_code') != 'N/A')
 # COMMAND ----------
 
 display(df_clean)
+
+# COMMAND ----------
+
+df_clean.count()
 
 # COMMAND ----------
 

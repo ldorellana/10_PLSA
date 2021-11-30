@@ -121,6 +121,10 @@ df_categories = spark.sql('SELECT * FROM category_master_v2')
 
 # COMMAND ----------
 
+(df_grouped.join(df_categories, on='cat_code').count())
+
+# COMMAND ----------
+
 df_final = (df_grouped
             .join(df_categories, on='cat_code')
             .groupBy('card_id','word_code')
@@ -137,7 +141,20 @@ df_final = (df_grouped
 
 # COMMAND ----------
 
-# spark.sql('USE 10_plsa')
-# spark.sql('DROP TABLE IF EXISTS tran_word_master_v2')
+spark.sql('USE 10_plsa')
+spark.sql('DROP TABLE IF EXISTS tran_word_master_v2')
 
-# df_final.write.saveAsTable('tran_word_master_v2', partitionBy='word_code')
+df_final.write.saveAsTable('tran_word_master_v2', partitionBy='word_code')
+
+# COMMAND ----------
+
+df_tran = spark.sql('SELECT * FROM tran_word_master_v2')
+display(df_tran.filter(F.col('word_name') == 'N/A'))
+
+# COMMAND ----------
+
+display(df_categories.filter(F.col('word_name') == 'N/A'))
+
+# COMMAND ----------
+
+

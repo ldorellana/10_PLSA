@@ -7,7 +7,7 @@
 
 # File location and type
 file_location = '/FileStore/tables/10_PLSA/DATA/ANALYSIS/CAT_V2/'
-file_name = 'en_jp_categories_v2.csv'
+file_name = 'en_jp_categories_v21.csv'
 
 df = spark.read.csv(file_location+file_name, header=True)
 
@@ -41,9 +41,9 @@ display(df_lang)
 
 # COMMAND ----------
 
-spark.sql('USE 10_plsa')
-spark.sql('DROP TABLE IF EXISTS words_jpen_v2')
-df_lang.write.saveAsTable(name='words_jpen_v2', mode='overwrite')
+# spark.sql('USE 10_plsa')
+# spark.sql('DROP TABLE IF EXISTS words_jpen_v2')
+# df_lang.write.saveAsTable(name='words_jpen_v2', mode='overwrite')
 
 # COMMAND ----------
 

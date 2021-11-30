@@ -121,15 +121,19 @@ df_categories = spark.sql('SELECT * FROM category_master')
 
 # COMMAND ----------
 
-df_final = (df_grouped
-            .join(df_categories, on='cat_code')
-            .groupBy('card_id','word_code')
-            .agg(F.first('word_name').alias('word_name'), 
-                 F.first('index').alias('index'), 
-                 F.sum('qty').alias('qty'))
-            .withColumn('qty', F.col('qty').astype('int'))
+df_final = (df_grouped # (card_id, cat_code)
+            .join(df_categories, on='cat_code') # keep only categories registered
+            .groupBy('card_id','word_code') # group by word_codes
+            .agg(F.first('word_name').alias('word_name'),  # keep word_name
+                 F.first('index').alias('index'),  # get the first index
+                 F.sum('qty').alias('qty')) # sum the qty per word
+            .withColumn('qty', F.col('qty').astype('int')) # change types
             .withColumn('index', F.col('index').astype('int'))
            )
+
+# COMMAND ----------
+
+(df_grouped.join(df_categories, on='cat_code').count())
 
 # COMMAND ----------
 

@@ -93,6 +93,28 @@ display(df_final.head(3))
 
 # MAGIC %md
 # MAGIC 
+# MAGIC ## EDIT CATEGORIES AT REQUEST
+
+# COMMAND ----------
+
+cat_code = ['000033_000001_000001_000001', '000030_000001_000001_000001']
+
+# COMMAND ----------
+
+df_final.count()
+
+# COMMAND ----------
+
+df_final = (df_final.filter(~F.col('cat_code').isin(cat_code)))
+
+# COMMAND ----------
+
+df_final.count()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
 # MAGIC ## SAVE TABLE
 
 # COMMAND ----------
@@ -100,6 +122,10 @@ display(df_final.head(3))
 # spark.sql('USE 10_plsa')
 # spark.sql('DROP TABLE IF EXISTS category_master')
 # df_final.write.saveAsTable('category_master')
+
+# COMMAND ----------
+
+ls ../../dbfs/FileStore/files/LDA_MODELS/reports/11_30v2
 
 # COMMAND ----------
 
